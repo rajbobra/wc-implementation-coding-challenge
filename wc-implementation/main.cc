@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -7,27 +8,55 @@
 #include <ctype.h>
 
 std::ifstream openFile(char*);
-void countBytes(std::ifstream*, char*);
-void countLines(std::ifstream*, char*);
+void closeFile(std::ifstream*);
+void printOutput(std::string, char*);
+std::streampos countBytes(std::ifstream*);
+int countLines(std::ifstream*);
+int countWords(std::ifstream*);
 
 int main(int argc, char** argv) {
     char* fileName;
     std::ifstream myFile;
+    std::streampos bytes;
+    int lines;
+    int words;
     opterr = 0;
     int c;
 
+    if(argc == 2) {
+        fileName = argv[1];
+        myFile = openFile(fileName);
+        bytes = countBytes(&myFile);
+        myFile = openFile(fileName);
+        lines = countLines(&myFile);
+        myFile = openFile(fileName);
+        words = countWords(&myFile);
+        printOutput(std::to_string(bytes) + " " + std::to_string(lines) + " " + std::to_string(words), fileName);
+    }
+
     //parsing the command and getting the options
-    while((c=getopt(argc, argv, "c:l:")) != -1) {
+    while((c=getopt(argc, argv, "c:l:w:")) != -1) {
         switch(c) {
             case 'c':
                 fileName = optarg;
                 myFile = openFile(fileName);
-                countBytes(&myFile, fileName);
+                bytes = countBytes(&myFile);
+                closeFile(&myFile);
+                printOutput(std::to_string(bytes), fileName);
                 break;
             case 'l':
                 fileName = optarg;
                 myFile = openFile(fileName);
-                countLines(&myFile, fileName);
+                lines = countLines(&myFile);
+                closeFile(&myFile);
+                printOutput(std::to_string(lines), fileName);
+                break;
+            case 'w':
+                fileName = optarg;
+                myFile = openFile(fileName);
+                words = countWords(&myFile);
+                closeFile(&myFile);
+                printOutput(std::to_string(words), fileName);
                 break;
             case '?':
                 std::cerr << "Unknown option or missing argument\n";
@@ -47,31 +76,54 @@ std::ifstream openFile(char* fileName) {
     myFile.open(fileName, std::ios::binary);
         
     if(!myFile) { 
+        std::cerr << fileName << std::endl;
         std::cerr << "Error opening the file\n"; 
     }
     return myFile;
 }
 
-void countBytes(std::ifstream* myFile, char* fileName) {
+void closeFile(std::ifstream* myFile) {
+    myFile->close();
+}
+
+void printOutput(std::string param, char* fileName) {
+    std::cout << param << " " << fileName << std::endl;
+}
+
+
+
+std::streampos countBytes(std::ifstream* myFile) {
     // Move the file pointer to EOF
     myFile->seekg(0, std::ios::end);
 
     // Get the new current file pointer position, since we moved the pointer to EOF, this gives the total bytes
     std::streampos bytes = myFile->tellg();
-
-    std::cout << std::to_string(bytes) << " " << fileName << std::endl;
-
-    myFile->close();
+    closeFile(myFile);
+    return bytes;
 }
 
-void countLines(std::ifstream* myFile, char* fileName) {
-    int lines = 0;
+int countLines(std::ifstream* myFile) {
+    int lineCount = 0;
     std::string throwaway;
     
     // count lines, getline defaulted at delim \n
-    while(std::getline(*myFile, throwaway)) { lines++; }
+    while(std::getline(*myFile, throwaway)) { lineCount++; }
+    closeFile(myFile);
+    return lineCount;
+}
 
-    std::cout << std::to_string(lines) << " " << fileName << std::endl;
+int countWords(std::ifstream* myFile) {
+    int wordCount = 0;
+    std::string eachLine;
+    std::string word;
 
-    myFile->close();
+    while(getline(*myFile, eachLine)) {
+        std::stringstream lineStream(eachLine);
+
+        while(lineStream >> word) {
+            wordCount++;
+        }
+    }
+    closeFile(myFile);
+    return wordCount;
 }
